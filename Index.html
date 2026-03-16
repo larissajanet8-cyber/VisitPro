@@ -514,7 +514,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 window._fb = { db, ref, onValue, push, set, update, remove, get };
-window.dispatchEvent(new Event('firebase-ready'));
+// Pequeño delay para asegurar que el listener esté registrado
+setTimeout(()=>window.dispatchEvent(new Event('firebase-ready')), 100);
 </script>
 
 <script>
