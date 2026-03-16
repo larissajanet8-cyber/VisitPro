@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisitPro — Sistema de Visitas</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00C896">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VisitPro">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --verde:#00C896;--verde-dark:#00A07A;--verde-glow:rgba(0,200,150,.15);
+  --rojo:#FF4B6E;--amarillo:#F59E0B;--azul:#3B82F6;--morado:#8B5CF6;
+  --bg:#080F1A;--bg2:#0D1829;--bg3:#162035;
+  --card:#111E33;--card2:#1A2B45;
+  --border:rgba(255,255,255,.07);
+  --text:#E8EDF8;--text2:#8A96B0;--text3:#5A6480;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* LOADING */
+#loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.load-logo{width:72px;height:72px;background:var(--verde);border-radius:20px;display:flex;align-items:center;justify-content:center;}
+.load-spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--verde);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-text{font-size:14px;color:var(--text2);}
+
+/* LOGIN */
+#login-screen{display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 60% 20%,var(--verde-glow) 0%,transparent 60%);}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:40px 36px;width:100%;max-width:440px;}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:32px;justify-content:center;}
+.logo-icon{width:52px;height:52px;background:var(--verde);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;}
+.logo-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;}
+.logo-title span{color:var(--verde);}
+.login-sub{text-align:center;color:var(--text2);font-size:13px;margin-bottom:28px;}
+.role-tabs{display:flex;background:var(--bg2);border-radius:12px;padding:4px;margin-bottom:24px;gap:4px;}
+.role-tab{flex:1;padding:10px;border-radius:9px;border:none;background:transparent;color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;transition:.2s;}
+.role-tab.active{background:var(--verde);color:#000;font-weight:600;}
+.form-group{margin-bottom:16px;}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+.form-group select,.form-group input{width:100%;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:.2s;}
+.form-group select:focus,.form-group input:focus{border-color:var(--verde);}
+.btn-login{width:100%;padding:14px;background:var(--verde);color:#000;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:.2s;margin-top:8px;}
+.btn-login:hover{background:var(--verde-dark);}
+
+/* APP */
+#app{display:none;min-height:100vh;flex-direction:column;}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.topbar-logo{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;flex:1;}
+.topbar-logo span{color:var(--verde);}
+.conn-status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);}
+.conn-dot{width:6px;height:6px;border-radius:50%;}
+.conn-dot.online{background:var(--verde);animation:pulse 2s infinite;}
+.conn-dot.offline{background:var(--text3);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.user-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#000;flex-shrink:0;}
+.user-info{flex-shrink:0;}
+.user-name{font-size:14px;font-weight:500;}
+.user-role{font-size:11px;color:var(--text2);}
+.btn-logout{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:.2s;}
+.btn-logout:hover{border-color:var(--rojo);color:var(--rojo);}
+.nav-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.nav-tab{padding:14px 18px;border:none;background:transparent;color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:.2s;font-family:'DM Sans',sans-serif;}
+.nav-tab.active{color:var(--verde);border-bottom-color:var(--verde);}
+
+/* TABS */
+.tab-content{display:none;padding:20px;max-width:1200px;margin:0 auto;}
+.tab-content.active{display:block;}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;}
+.stat-num{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--verde);}
+.stat-label{font-size:12px;color:var(--text2);margin-top:4px;}
+
+/* CARDS VISITA */
+.visita-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;gap:12px;margin-bottom:10px;}
+.visita-status{width:4px;border-radius:2px;flex-shrink:0;background:var(--text3);}
+.visita-status.en-curso{background:var(--verde);}
+.visita-status.completada{background:var(--azul);}
+.visita-info{flex:1;min-width:0;}
+.visita-pdv{font-weight:600;font-size:15px;margin-bottom:2px;}
+.visita-meta{font-size:12px;color:var(--text2);margin-bottom:8px;}
+.visita-tags{display:flex;flex-wrap:wrap;gap:6px;}
+.tag{font-size:11px;padding:3px 9px;border-radius:99px;font-weight:500;}
+.tag.gris{background:var(--bg3);color:var(--text2);}
+.tag.verde{background:rgba(0,200,150,.15);color:var(--verde);}
+.tag.azul{background:rgba(59,130,246,.15);color:var(--azul);}
+.tag.rojo{background:rgba(255,75,110,.15);color:var(--rojo);}
+.tag.amarillo{background:rgba(245,158,11,.15);color:var(--amarillo);}
+.visita-hora{font-size:12px;color:var(--text2);text-align:right;flex-shrink:0;}
+
+/* CHECKLIST */
+.checklist-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.checklist-item:last-child{border-bottom:none;}
+.check-box{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;flex-shrink:0;}
+.check-box.checked{background:var(--verde);border-color:var(--verde);}
+.check-label{font-size:14px;flex:1;}
+.check-score{display:flex;gap:4px;}
+.score-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:.2s;}
+.score-btn.active{background:var(--verde);border-color:var(--verde);color:#000;}
+
+/* MAPA */
+.map-wrap{border-radius:16px;overflow:hidden;border:1px solid var(--border);margin-bottom:20px;}
+#mapa,#mapa-corp{height:400px;background:var(--bg2);}
+.map-header{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.map-header h3{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--verde);font-weight:600;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--verde);animation:pulse 1.5s infinite;}
+
+/* SECTION HEADER */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.section-header h3{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
+
+/* SUPERVISORES GRID */
+.supervisores-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+.sup-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;}
+.sup-header{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+.sup-stats{display:flex;gap:8px;margin-top:12px;}
+.sup-stat{flex:1;background:var(--bg2);border-radius:8px;padding:8px;text-align:center;}
+.sup-stat-n{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--verde);}
+.sup-stat-l{font-size:11px;color:var(--text2);}
+
+/* FILTROS */
+.filtros{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+.filtro-btn{padding:7px 14px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;transition:.2s;font-family:'DM Sans',sans-serif;}
+.filtro-btn.active{background:var(--verde);color:#000;border-color:var(--verde);}
+
+/* TABLA */
+.tabla-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{padding:12px 14px;text-align:left;background:var(--card2);color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+td{padding:11px 14px;border-top:1px solid var(--border);}
+tr:hover td{background:var(--card);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:.3s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--card2);border:1px solid var(--border);border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;max-width:560px;transform:translateY(100%);transition:.35s cubic-bezier(.4,0,.2,1);max-height:92vh;overflow-y:auto;}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 24px;}
+.modal h2{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:6px;}
+.modal p{color:var(--text2);font-size:14px;margin-bottom:20px;}
+.modal .form-group select,.modal .form-group input,.modal .form-group textarea{width:100%;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:.2s;}
+.modal .form-group textarea{resize:vertical;min-height:80px;}
+.modal .form-group select:focus,.modal .form-group input:focus,.modal .form-group textarea:focus{border-color:var(--verde);}
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.btn-cancel{flex:1;padding:13px;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--text2);font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-submit{flex:2;padding:13px;background:var(--verde);border:none;border-radius:12px;color:#000;font-size:14px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed;}
+
+/* GPS */
+.gps-indicator{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:13px;}
+.gps-indicator.ok{border-color:var(--verde);color:var(--verde);}
+.gps-indicator.loading{border-color:var(--amarillo);color:var(--amarillo);}
+.gps-indicator.error{border-color:var(--rojo);color:var(--rojo);}
+
+/* PLAN */
+.plan-nav-select{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.plan-nav-select select{padding:9px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;cursor:pointer;}
+.plan-semana-header{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.plan-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px;}
+.plan-stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}
+.plan-stat-n{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;}
+.plan-stat-l{font-size:11px;color:var(--text2);margin-top:3px;}
+.cobertura-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-top:6px;}
+.cobertura-fill{height:100%;border-radius:4px;background:var(--verde);transition:.5s;}
+.plan-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+.plan-item-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.plan-item-icon.cumplida{background:rgba(0,200,150,.15);color:var(--verde);}
+.plan-item-icon.pendiente{background:rgba(255,255,255,.05);color:var(--text3);}
+.plan-item-icon.extra{background:rgba(59,130,246,.15);color:var(--azul);}
+.plan-item-icon.incumplida{background:rgba(255,75,110,.15);color:var(--rojo);}
+.plan-deadline.open{background:rgba(0,200,150,.15);color:var(--verde);padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600;}
+.plan-deadline.closed{background:rgba(255,75,110,.15);color:var(--rojo);padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600;}
+
+/* GESTIÓN */
+.gestion-selector{display:flex;gap:10px;margin-bottom:20px;}
+.gestion-selector select{padding:9px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;cursor:pointer;}
+.gestion-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:28px;}
+.gestion-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 14px;}
+.gestion-card.extra{border-color:var(--azul);}
+.gestion-card-titulo{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.gestion-card-num{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;line-height:1;}
+.gestion-card-ant{font-size:11px;color:var(--text3);margin-top:6px;}
+.delta-pos{color:var(--verde);}
+.delta-neg{color:var(--rojo);}
+
+/* FAB */
+.fab{position:fixed;bottom:28px;right:24px;z-index:400;background:var(--verde);color:#000;border:none;border-radius:50px;padding:14px 22px;font-size:14px;font-weight:700;cursor:pointer;display:none;align-items:center;gap:8px;font-family:'Syne',sans-serif;box-shadow:0 4px 20px rgba(0,200,150,.35);transition:.2s;}
+.fab:hover{opacity:.9;transform:scale(1.04);}
+
+/* ALERTAS */
+.no-visitadas-section{margin-bottom:24px;}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px;color:var(--text2);}
+.empty-icon{font-size:40px;margin-bottom:12px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--verde);color:#000;padding:12px 24px;border-radius:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;z-index:9999;transition:.35s cubic-bezier(.4,0,.2,1);white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.error{background:var(--rojo);color:#fff;}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  .tab-content{padding:12px;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .modal{padding:20px 16px 32px;border-radius:24px;}
+  .modal-overlay{align-items:center;}
+}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--card2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-overlay">
+  <div class="load-logo">🗺️</div>
+  <div class="load-spinner"></div>
+  <div class="load-text">Conectando con VisitPro...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">🗺️</div>
+      <div class="logo-title">Visit<span>Pro</span></div>
+    </div>
+    <p class="login-sub">Sistema de visitas a puntos de venta en tiempo real</p>
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="setRole('supervisor')">👤 Supervisor</button>
+      <button class="role-tab" onclick="setRole('corporativo')">🏢 Corporativo</button>
+    </div>
+    <div id="select-usuario-group">
+      <div class="form-group">
+        <label>Usuario</label>
+        <select id="select-usuario">
+          <option value="">Seleccioná tu usuario...</option>
+          <option value="sup1">Carlos Méndez — Zona Norte</option>
+          <option value="sup2">Ana García — Zona Sur</option>
+          <option value="sup3">Roberto López — Zona Este</option>
+          <option value="sup4">María Torres — Zona Oeste</option>
+        </select>
+      </div>
+    </div>
+    <div id="select-admin-group" style="display:none;">
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="input-admin" placeholder="Contraseña corporativo..."/>
+      </div>
+    </div>
+    <button class="btn-login" onclick="login()">Entrar al sistema →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-logo">Visit<span>Pro</span></div>
+    <div class="conn-status">
+      <div class="conn-dot offline" id="conn-dot"></div>
+      <span id="conn-text" style="color:var(--text3)">Conectando</span>
+    </div>
+    <div class="user-avatar" id="user-avatar">?</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name-display">-</div>
+      <div class="user-role" id="user-role-display">-</div>
+    </div>
+    <button class="btn-logout" onclick="logout()">Salir</button>
+  </div>
+  <div class="nav-tabs" id="nav-tabs"></div>
+  <div id="tabs-container">
+
+    <!-- INICIO SUPERVISOR -->
+    <div class="tab-content active" id="tab-inicio">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-num" id="stat-hoy">0</div><div class="stat-label">Visitas hoy</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-mes">0</div><div class="stat-label">Este mes</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-pend">0</div><div class="stat-label">PDV pendientes</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-check" style="color:var(--azul)">0%</div><div class="stat-label">Checklist promedio</div></div>
+      </div>
+      <div class="section-header">
+        <h3>Visitas de hoy</h3>
+        <button onclick="abrirModal()" style="background:var(--verde);color:#000;border:none;border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;">+ Registrar visita</button>
+      </div>
+      <div id="visitas-hoy">
+        <div class="empty"><div class="empty-icon">🏪</div><h3>Sin visitas hoy</h3><p>Tocá "Registrar visita" para comenzar</p></div>
+      </div>
+    </div>
+
+    <!-- PLAN VISITAS -->
+    <div class="tab-content" id="tab-plan">
+      <div class="plan-nav-select" id="plan-nav">
+        <select id="plan-sel-mes" onchange="onCambioMesPlan()"></select>
+        <select id="plan-sel-semana" onchange="onCambioSemanaPlan()"></select>
+      </div>
+      <div id="plan-contenido"></div>
+    </div>
+
+    <!-- MAPA SUPERVISOR -->
+    <div class="tab-content" id="tab-mapa">
+      <div class="map-wrap">
+        <div class="map-header"><h3>📍 Mis puntos de venta</h3></div>
+        <div id="mapa"></div>
+      </div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="tab-content" id="tab-historial">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div class="filtros" id="filtros-wrap" style="margin:0;"></div>
+        <button onclick="exportarExcel()" style="display:inline-flex;align-items:center;gap:6px;background:#1D6F42;color:#fff;font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">📥 Exportar Excel</button>
+      </div>
+      <div class="tabla-wrap">
+        <table>
+          <thead><tr>
+            <th>PDV</th><th>Tipo</th><th>Supervisor</th><th>Checklist</th>
+            <th>Entrada</th><th>Salida</th><th>Duración</th><th>Estado</th>
+          </tr></thead>
+          <tbody id="tabla-historial"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- NO VISITADAS -->
+    <div class="tab-content" id="tab-novisitadas">
+      <div id="contenido-novisitadas"></div>
+    </div>
+
+    <!-- GESTIÓN -->
+    <div class="tab-content" id="tab-gestion">
+      <div class="gestion-selector">
+        <select id="gestion-sel-mes" onchange="renderGestion()"></select>
+      </div>
+      <div class="gestion-cards" id="gestion-cards"></div>
+      <div class="section-header"><h3>Detalle por supervisor</h3></div>
+      <div class="tabla-wrap">
+        <table>
+          <thead><tr>
+            <th>Supervisor</th><th>PDV</th><th>Objetivo mes</th>
+            <th>Realizado</th><th>% Logrado</th><th>Extras</th><th>Pendiente</th>
+          </tr></thead>
+          <tbody id="tbody-gestion"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DASHBOARD CORP -->
+    <div class="tab-content" id="tab-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-num" id="stat-corp-hoy">0</div><div class="stat-label">Visitas hoy</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-corp-mes">0</div><div class="stat-label">Este mes</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-corp-check" style="color:var(--azul)">0%</div><div class="stat-label">Checklist promedio</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-sin" style="color:var(--rojo)">0</div><div class="stat-label">Sin visita 7 días</div></div>
+      </div>
+      <div class="map-wrap">
+        <div class="map-header">
+          <h3>🗺️ Supervisores en campo</h3>
+          <div class="live-badge"><div class="live-dot"></div>TIEMPO REAL</div>
+        </div>
+        <div id="mapa-corp"></div>
+      </div>
+      <div class="section-header"><h3>Últimas visitas</h3></div>
+      <div id="visitas-corp-list"></div>
+    </div>
+
+    <!-- SUPERVISORES -->
+    <div class="tab-content" id="tab-supervisores">
+      <div class="section-header"><h3>Estado de supervisores</h3></div>
+      <div class="supervisores-grid" id="supervisores-grid"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FAB AGREGAR PDV -->
+<button class="fab" id="fab-pdv" onclick="abrirModalPDV()">+ Agregar PDV</button>
+
+<!-- MODAL REGISTRAR VISITA -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)cerrarModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Registrar visita</h2>
+    <p>GPS se captura automáticamente al guardar</p>
+    <div class="form-group">
+      <label>Punto de venta</label>
+      <select id="sel-pdv"><option value="">Seleccioná el PDV...</option></select>
+    </div>
+    <div class="form-group">
+      <label>Tipo de visita</label>
+      <select id="sel-tipo">
+        <option value="rutina">Rutina</option>
+        <option value="seguimiento">Seguimiento</option>
+        <option value="auditoria">Auditoría</option>
+        <option value="capacitacion">Capacitación</option>
+        <option value="urgente">Urgente</option>
+      </select>
+    </div>
+    <!-- CHECKLIST -->
+    <div class="form-group">
+      <label>Checklist de visita</label>
+      <div id="checklist-container" style="background:var(--bg2);border-radius:10px;padding:12px;"></div>
+    </div>
+    <div class="form-group">
+      <label>Comentarios</label>
+      <textarea id="inp-comentarios" placeholder="¿Qué observaste en esta visita?"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Ubicación GPS</label>
+      <div class="gps-indicator loading" id="gps-ind">
+        <span>📡</span><span id="gps-txt">Obteniendo ubicación...</span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-submit" id="btn-submit" onclick="guardarVisita()" disabled>Guardar visita ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PLAN -->
+<div class="modal-overlay" id="modal-plan-overlay" onclick="if(event.target===this)cerrarModalPlan()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>📅 Planificar semana</h2>
+    <p id="modal-plan-label">Seleccioná los PDV que vas a visitar esta semana</p>
+    <input type="text" id="plan-buscar" placeholder="🔍 Buscar PDV..." oninput="filtrarPDVPlan()" style="width:100%;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px;"/>
+    <div id="plan-lista-pdvs" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+    <div style="margin-top:12px;padding:10px 14px;background:var(--bg2);border-radius:10px;font-size:13px;color:var(--text2);">
+      <span id="plan-contador">0 PDV seleccionados</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModalPlan()">Cancelar</button>
+      <button class="btn-submit" onclick="guardarPlanVisitas()">Guardar plan ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO PDV -->
+<div class="modal-overlay" id="modal-pdv-overlay" onclick="if(event.target===this)cerrarModalPDV()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>Nuevo punto de venta</h2>
+    <p>Se agrega al sistema en tiempo real</p>
+    <div class="form-group">
+      <label>Nombre del PDV</label>
+      <input type="text" id="pdv-nombre" placeholder="Ej: Supermercado Central"/>
+    </div>
+    <div class="form-group">
+      <label>Tipo</label>
+      <select id="pdv-tipo">
+        <option value="">Seleccioná el tipo...</option>
+        <option>Supermercado</option><option>Farmacia</option><option>Tienda</option>
+        <option>Kiosco</option><option>Mayorista</option><option>Otro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Ciudad</label>
+      <input type="text" id="pdv-ciudad" placeholder="Ej: Asunción"/>
+    </div>
+    <div class="form-group">
+      <label>Dirección</label>
+      <input type="text" id="pdv-direccion" placeholder="Ej: Av. Mcal. López 1234"/>
+    </div>
+    <div class="form-group">
+      <label>Latitud</label>
+      <input type="number" id="pdv-lat" placeholder="-25.2867" step="any"/>
+    </div>
+    <div class="form-group">
+      <label>Longitud</label>
+      <input type="number" id="pdv-lng" placeholder="-57.6470" step="any"/>
+    </div>
+    <div class="form-group">
+      <label>Supervisor asignado</label>
+      <select id="pdv-sup"><option value="">Seleccioná un supervisor...</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModalPDV()">Cancelar</button>
+      <button class="btn-submit" onclick="guardarNuevoPDV()">Guardar PDV ✓</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getDatabase, ref, onValue, push, set, update, remove, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAu9mKBUwk6er7YzDTt-5YVnfI47hImOyk",
+  authDomain: "visitpro-db222.firebaseapp.com",
+  databaseURL: "https://visitpro-db222-default-rtdb.firebaseio.com",
+  projectId: "visitpro-db222",
+  storageBucket: "visitpro-db222.firebasestorage.app",
+  messagingSenderId: "24905569278",
+  appId: "1:24905569278:web:83b949da69ae54dd6066af",
+  measurementId: "G-QK56Y3MZHP"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+window._fb = { db, ref, onValue, push, set, update, remove, get };
+window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<script>
+// =============================================
+// DATOS MAESTROS
+// =============================================
+const SUPERVISORES = {
+  sup1:{nombre:'Carlos Méndez',zona:'Zona Norte',color:'#00C896',av:'CM',pdvs:['pdv001','pdv002','pdv003','pdv004','pdv005','pdv006','pdv007','pdv008','pdv009','pdv010']},
+  sup2:{nombre:'Ana García',zona:'Zona Sur',color:'#3B82F6',av:'AG',pdvs:['pdv011','pdv012','pdv013','pdv014','pdv015','pdv016','pdv017','pdv018','pdv019','pdv020']},
+  sup3:{nombre:'Roberto López',zona:'Zona Este',color:'#F59E0B',av:'RL',pdvs:['pdv021','pdv022','pdv023','pdv024','pdv025','pdv026','pdv027','pdv028','pdv029','pdv030']},
+  sup4:{nombre:'María Torres',zona:'Zona Oeste',color:'#A855F7',av:'MT',pdvs:['pdv031','pdv032','pdv033','pdv034','pdv035','pdv036','pdv037','pdv038','pdv039','pdv040']},
+};
+
+const TIPOS_PDV = ['Supermercado','Farmacia','Tienda','Kiosco','Mayorista','Otro'];
+
+const PDVS = {};
+// Generar 40 PDVs de ejemplo
+const BASE = {lat:-25.2867, lng:-57.6470};
+const CIUDADES_EJ = ['Asunción','San Lorenzo','Luque','Fernando de la Mora','Lambaré','Mariano R. Alonso'];
+const NOMBRES_EJ = ['Super Central','Farmacia Norte','Tienda Express','Kiosco Plaza','Mayorista Roca','Super Barrio','Mini Market','Distribuidora Sur','Almacén Central','Punto Venta'];
+for(let i=1;i<=40;i++){
+  const id = `pdv${String(i).padStart(3,'0')}`;
+  PDVS[id] = {
+    id, 
+    nombre: `${NOMBRES_EJ[(i-1)%NOMBRES_EJ.length]} ${i}`,
+    tipo: TIPOS_PDV[(i-1)%TIPOS_PDV.length],
+    ciudad: CIUDADES_EJ[(i-1)%CIUDADES_EJ.length],
+    direccion: `Calle ${i} N° ${100+i}`,
+    lat: BASE.lat + (Math.random()-.5)*.3,
+    lng: BASE.lng + (Math.random()-.5)*.3
+  };
+}
+
+const CHECKLIST_ITEMS = [
+  {id:'exhibicion', label:'Exhibición del producto correcta'},
+  {id:'stock', label:'Stock suficiente en góndola'},
+  {id:'carteleria', label:'Cartelería y POP en lugar'},
+  {id:'limpieza', label:'Limpieza y orden del espacio'},
+  {id:'precio', label:'Precio correcto en etiqueta'},
+  {id:'competencia', label:'Relevamiento de competencia'},
+];
+
+// =============================================
+// ESTADO GLOBAL
+// =============================================
+const S = {
+  role:null, uid:null,
+  visitas:{}, gps:null,
+  mapaS:null, mapaC:null,
+  supMarkers:{}, myMarker:null,
+  gpsWatch:null,
+  checklistValues:{},
+};
+
+let S_planSemanaEditando = null;
+let S_planSeleccionadoActual = new Set();
+let S_semanaViendoPlan = null;
+
+// =============================================
+// FIREBASE READY
+// =============================================
+window.addEventListener('firebase-ready', ()=>{
+  document.getElementById('loading-overlay').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  setConnStatus(true);
+});
+
+function setConnStatus(ok){
+  document.getElementById('conn-dot').className='conn-dot '+(ok?'online':'offline');
+  document.getElementById('conn-text').textContent=ok?'Conectado':'Sin conexión';
+  document.getElementById('conn-text').style.color=ok?'var(--verde)':'var(--text3)';
+}
+
+// =============================================
+// LOGIN / LOGOUT
+// =============================================
+let currentRole='supervisor';
+function setRole(r){
+  currentRole=r;
+  document.querySelectorAll('.role-tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&r==='supervisor')||(i===1&&r==='corporativo')));
+  document.getElementById('select-usuario-group').style.display=r==='supervisor'?'block':'none';
+  document.getElementById('select-admin-group').style.display=r==='corporativo'?'block':'none';
+}
+
+function login(){
+  if(currentRole==='supervisor'){
+    const v=document.getElementById('select-usuario').value;
+    if(!v){showToast('Seleccioná tu usuario','error');return;}
+    S.role='supervisor';S.uid=v;
+  } else {
+    if(document.getElementById('input-admin').value!=='admin123'){showToast('Contraseña incorrecta','error');return;}
+    S.role='corporativo';S.uid='corp';
+  }
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('app').style.flexDirection='column';
+  iniciarApp();
+}
+
+function logout(){
+  if(S.gpsWatch) navigator.geolocation.clearWatch(S.gpsWatch);
+  if(S.role==='supervisor'&&window._fb){
+    const {db,ref,update}=window._fb;
+    update(ref(db,`supervisores_vp/${S.uid}`),{online:false,lastSeen:Date.now()});
+  }
+  S.role=null;S.uid=null;S.gps=null;S.mapaS=null;S.mapaC=null;S.supMarkers={};S.myMarker=null;
+  document.getElementById('fab-pdv').style.display='none';
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+}
+
+// =============================================
+// INICIAR APP
+// =============================================
+function iniciarApp(){
+  const sup=SUPERVISORES[S.uid];
+  if(S.role==='supervisor'){
+    document.getElementById('user-avatar').textContent=sup.av;
+    document.getElementById('user-avatar').style.background=sup.color;
+    document.getElementById('user-name-display').textContent=sup.nombre;
+    document.getElementById('user-role-display').textContent=sup.zona;
+    buildNav([
+      {label:'🏠 Inicio',tab:'tab-inicio'},
+      {label:'📅 Plan',tab:'tab-plan'},
+      {label:'📍 Mi mapa',tab:'tab-mapa'},
+      {label:'📋 Historial',tab:'tab-historial'},
+      {label:'🚨 No visitados',tab:'tab-novisitadas',color:'red'},
+    ]);
+    suscribirVisitas();
+    iniciarGPS();
+  } else {
+    document.getElementById('user-avatar').textContent='🏢';
+    document.getElementById('user-avatar').style.background='var(--card2)';
+    document.getElementById('user-avatar').style.fontSize='18px';
+    document.getElementById('user-name-display').textContent='Corporativo';
+    document.getElementById('user-role-display').textContent='Vista general';
+    document.getElementById('fab-pdv').style.display='flex';
+    buildNav([
+      {label:'📊 Dashboard',tab:'tab-dashboard'},
+      {label:'👥 Supervisores',tab:'tab-supervisores'},
+      {label:'📊 Gestión',tab:'tab-gestion'},
+      {label:'📅 Plan',tab:'tab-plan'},
+      {label:'📋 Historial',tab:'tab-historial'},
+      {label:'🚨 No visitados',tab:'tab-novisitadas',color:'red'},
+    ]);
+    suscribirVisitas();
+    suscribirUbicaciones();
+  }
+}
+
+// =============================================
+// NAVEGACIÓN
+// =============================================
+function buildNav(tabs){
+  document.getElementById('nav-tabs').innerHTML=tabs.map((t,i)=>{
+    let style='';
+    if(t.color==='red') style='style="color:#A32D2D;"';
+    return `<button class="nav-tab${i===0?' active':''}" ${style} onclick="switchTab('${t.tab}',this)" id="nav-${t.tab}">${t.label}<span id="badge-${t.tab}" style="display:none;background:currentColor;color:#fff;font-size:10px;border-radius:99px;padding:1px 6px;margin-left:3px;opacity:0.85;"></span></button>`;
+  }).join('');
+}
+
+function switchTab(id,el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  if(id==='tab-mapa') setTimeout(()=>{if(!S.mapaS)initMapSup();else S.mapaS.invalidateSize();},100);
+  if(id==='tab-dashboard') setTimeout(()=>{if(!S.mapaC)initMapCorp();else S.mapaC.invalidateSize();},100);
+  if(id==='tab-historial') renderHistorial();
+  if(id==='tab-supervisores') renderSupervisores();
+  if(id==='tab-novisitadas') renderNoVisitados();
+  if(id==='tab-plan') renderPlanVisitas();
+  if(id==='tab-gestion') renderGestion();
+}
+
+// =============================================
+// FIREBASE
+// =============================================
+function suscribirVisitas(){
+  const {db,ref,onValue}=window._fb;
+  onValue(ref(db,'visitas_vp'),snap=>{
+    S.visitas={};
+    snap.forEach(c=>{S.visitas[c.key]=c.val();});
+    if(S.role==='supervisor') renderSupView();
+    else renderCorpView();
+    actualizarBadges();
+  });
+}
+
+function suscribirUbicaciones(){
+  const {db,ref,onValue}=window._fb;
+  onValue(ref(db,'supervisores_vp'),snap=>{
+    const datos={};
+    snap.forEach(c=>{datos[c.key]=c.val();});
+    actualizarMarkersCorp(datos);
+  });
+}
+
+// =============================================
+// GPS
+// =============================================
+function iniciarGPS(){
+  if(!navigator.geolocation){setGPS('error','GPS no disponible');return;}
+  setGPS('loading','Obteniendo ubicación...');
+  S.gpsWatch=navigator.geolocation.watchPosition(
+    pos=>{
+      S.gps={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      setGPS('ok',`${S.gps.lat.toFixed(5)}, ${S.gps.lng.toFixed(5)}`);
+      document.getElementById('btn-submit').disabled=false;
+      publicarUbicacion();
+    },
+    ()=>{
+      S.gps={lat:BASE.lat+(Math.random()-.5)*.05,lng:BASE.lng+(Math.random()-.5)*.05};
+      setGPS('ok',`${S.gps.lat.toFixed(5)}, ${S.gps.lng.toFixed(5)} (demo)`);
+      document.getElementById('btn-submit').disabled=false;
+      publicarUbicacion();
+    },
+    {enableHighAccuracy:true,maximumAge:30000,timeout:10000}
+  );
+}
+
+function publicarUbicacion(){
+  if(!S.gps||!window._fb||S.role!=='supervisor') return;
+  const {db,ref,set}=window._fb;
+  set(ref(db,`supervisores_vp/${S.uid}`),{
+    ...S.gps,
+    nombre:SUPERVISORES[S.uid].nombre,
+    zona:SUPERVISORES[S.uid].zona,
+    color:SUPERVISORES[S.uid].color,
+    av:SUPERVISORES[S.uid].av,
+    online:true, lastSeen:Date.now()
+  });
+}
+
+function setGPS(s,t){
+  const el=document.getElementById('gps-ind');
+  el.className='gps-indicator'+(s==='ok'?' ok':s==='loading'?' loading':' error');
+  document.getElementById('gps-txt').textContent=t;
+}
+
+// =============================================
+// RENDER SUPERVISOR
+// =============================================
+function renderSupView(){
+  const hoy=todayStr();
+  const todas=Object.values(S.visitas);
+  const mias=todas.filter(v=>v.supId===S.uid);
+  const misHoy=mias.filter(v=>v.entrada&&v.entrada.startsWith(hoy));
+  document.getElementById('stat-hoy').textContent=misHoy.length;
+  document.getElementById('stat-mes').textContent=mias.filter(v=>v.entrada&&v.entrada.startsWith(hoy.slice(0,7))).length;
+  const visitados=new Set(mias.map(v=>v.pdvId));
+  document.getElementById('stat-pend').textContent=SUPERVISORES[S.uid].pdvs.filter(p=>!visitados.has(p)).length;
+  const checkAvg=misHoy.length?Math.round(misHoy.reduce((a,v)=>a+(v.checkPct||0),0)/misHoy.length):0;
+  document.getElementById('stat-check').textContent=checkAvg+'%';
+  const el=document.getElementById('visitas-hoy');
+  if(!misHoy.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">🏪</div><h3>Sin visitas hoy</h3><p>Tocá "Registrar visita" para comenzar</p></div>`;
+    return;
+  }
+  el.innerHTML=misHoy.slice().sort((a,b)=>new Date(b.entrada)-new Date(a.entrada)).map(v=>cardVisita(v)).join('');
+}
+
+// =============================================
+// RENDER CORPORATIVO
+// =============================================
+function renderCorpView(){
+  const hoy=todayStr();
+  const todas=Object.values(S.visitas);
+  const hoyV=todas.filter(v=>v.entrada&&v.entrada.startsWith(hoy));
+  document.getElementById('stat-corp-hoy').textContent=hoyV.length;
+  document.getElementById('stat-corp-mes').textContent=todas.filter(v=>v.entrada&&v.entrada.startsWith(hoy.slice(0,7))).length;
+  const checkAvg=hoyV.length?Math.round(hoyV.reduce((a,v)=>a+(v.checkPct||0),0)/hoyV.length):0;
+  document.getElementById('stat-corp-check').textContent=checkAvg+'%';
+  const semana=new Date();semana.setDate(semana.getDate()-7);
+  const visitadosSem=new Set(todas.filter(v=>v.entrada&&new Date(v.entrada)>semana).map(v=>v.pdvId));
+  document.getElementById('stat-sin').textContent=Object.keys(PDVS).length-visitadosSem.size;
+  const el=document.getElementById('visitas-corp-list');
+  const ultimas=todas.slice().sort((a,b)=>new Date(b.entrada||0)-new Date(a.entrada||0)).slice(0,12);
+  el.innerHTML=ultimas.length?ultimas.map(v=>cardVisita(v)).join(''):`<div class="empty"><div class="empty-icon">📊</div><h3>Sin visitas registradas</h3></div>`;
+  renderSupervisores();
+}
+
+function renderSupervisores(){
+  const hoy=todayStr();
+  const todas=Object.values(S.visitas);
+  document.getElementById('supervisores-grid').innerHTML=Object.entries(SUPERVISORES).map(([id,sup])=>{
+    const mias=todas.filter(v=>v.supId===id);
+    const hoyV=mias.filter(v=>v.entrada&&v.entrada.startsWith(hoy)).length;
+    const mesV=mias.filter(v=>v.entrada&&v.entrada.startsWith(hoy.slice(0,7))).length;
+    const checkAvg=mias.length?Math.round(mias.reduce((a,v)=>a+(v.checkPct||0),0)/mias.length):0;
+    const ultima=mias.sort((a,b)=>new Date(b.entrada||0)-new Date(a.entrada||0))[0];
+    return `<div class="sup-card">
+      <div class="sup-header">
+        <div class="user-avatar" style="background:${sup.color};width:44px;height:44px;font-size:14px;">${sup.av}</div>
+        <div>
+          <div style="font-weight:600;font-size:15px;">${sup.nombre}</div>
+          <div style="font-size:12px;color:var(--text2);">${sup.zona} · ${sup.pdvs.length} PDV</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">${ultima?`Última: ${PDVS[ultima.pdvId]?.nombre||ultima.pdvId}`:'Sin visitas aún'}</div>
+        </div>
+      </div>
+      <div class="sup-stats">
+        <div class="sup-stat"><div class="sup-stat-n">${hoyV}</div><div class="sup-stat-l">Hoy</div></div>
+        <div class="sup-stat"><div class="sup-stat-n">${mesV}</div><div class="sup-stat-l">Mes</div></div>
+        <div class="sup-stat"><div class="sup-stat-n" style="color:var(--azul)">${checkAvg}%</div><div class="sup-stat-l">Checklist</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =============================================
+// CARD VISITA
+// =============================================
+function cardVisita(v){
+  const pdv=PDVS[v.pdvId];
+  const sup=SUPERVISORES[v.supId];
+  const entrada=v.entrada?new Date(v.entrada):null;
+  const salida=v.salida?new Date(v.salida):null;
+  const dur=salida&&entrada?Math.round((salida-entrada)/60000):null;
+  const fbKey=Object.keys(S.visitas).find(k=>S.visitas[k]===v)||'';
+  const checkItems=v.checklist||{};
+  const checkCount=Object.values(checkItems).filter(Boolean).length;
+  const checkTotal=CHECKLIST_ITEMS.length;
+  const checkPct=Math.round((checkCount/checkTotal)*100);
+  return `<div class="visita-card">
+    <div class="visita-status ${v.estado||'completada'}"></div>
+    <div class="visita-info">
+      <div class="visita-pdv">${pdv?pdv.nombre:v.pdvId}</div>
+      <div class="visita-meta">${pdv?pdv.tipo+' · '+pdv.ciudad:''} · ${sup?sup.nombre:v.supId}</div>
+      <div class="visita-tags">
+        <span class="tag gris">${v.tipo||'rutina'}</span>
+        <span class="tag azul">✓ ${checkCount}/${checkTotal} checklist</span>
+        ${v.estado==='en-curso'?'<span class="tag verde">En curso</span>':''}
+        ${dur?`<span class="tag gris">⏱ ${dur}min</span>`:''}
+      </div>
+      ${v.comentarios?`<div style="font-size:13px;color:var(--text2);margin-top:6px">"${v.comentarios.slice(0,80)}${v.comentarios.length>80?'...':''}"</div>`:''}
+      ${v.estado==='en-curso'&&S.role==='supervisor'&&v.supId===S.uid?`<button onclick="finalizarVisita('${fbKey}')" style="margin-top:8px;background:var(--verde);color:#000;border:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">✓ Finalizar visita</button>`:''}
+      ${S.role==='supervisor'&&v.supId===S.uid?`<button onclick="eliminarVisita('${fbKey}')" style="margin-top:6px;background:transparent;border:1px solid var(--rojo);color:var(--rojo);font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;margin-left:6px;">🗑 Eliminar</button>`:''}
+    </div>
+    <div class="visita-hora">${entrada?fmtH(entrada):'—'}<br>${salida?fmtH(salida):'<span style="color:var(--verde)">Activa</span>'}</div>
+  </div>`;
+}
+
+// =============================================
+// MODAL REGISTRAR VISITA
+// =============================================
+function abrirModal(){
+  const sup=SUPERVISORES[S.uid];
+  document.getElementById('sel-pdv').innerHTML='<option value="">Seleccioná el PDV...</option>'+
+    sup.pdvs.map(pid=>{const p=PDVS[pid];return p?`<option value="${pid}">${p.nombre} — ${p.tipo} · ${p.ciudad}</option>`:''}).join('');
+  // Renderizar checklist
+  S.checklistValues={};
+  document.getElementById('checklist-container').innerHTML=CHECKLIST_ITEMS.map(item=>`
+    <div class="checklist-item">
+      <div class="check-box" id="cb-${item.id}" onclick="toggleCheck('${item.id}')"></div>
+      <span class="check-label">${item.label}</span>
+    </div>
+  `).join('');
+  document.getElementById('inp-comentarios').value='';
+  document.getElementById('modal-overlay').classList.add('open');
+  setGPS('loading','Obteniendo GPS...');
+  document.getElementById('btn-submit').disabled=true;
+  if(S.gps){
+    setGPS('ok',`${S.gps.lat.toFixed(5)}, ${S.gps.lng.toFixed(5)}`);
+    document.getElementById('btn-submit').disabled=false;
+  } else iniciarGPS();
+}
+
+function toggleCheck(id){
+  S.checklistValues[id]=!S.checklistValues[id];
+  const el=document.getElementById('cb-'+id);
+  if(S.checklistValues[id]){el.classList.add('checked');el.textContent='✓';}
+  else{el.classList.remove('checked');el.textContent='';}
+}
+
+function cerrarModal(){document.getElementById('modal-overlay').classList.remove('open');}
+
+async function guardarVisita(){
+  const pdvId=document.getElementById('sel-pdv').value;
+  if(!pdvId){showToast('Seleccioná un PDV','error');return;}
+  if(!S.gps){showToast('Esperando GPS...','error');return;}
+  document.getElementById('btn-submit').disabled=true;
+  document.getElementById('btn-submit').textContent='Guardando...';
+  const checkCount=Object.values(S.checklistValues).filter(Boolean).length;
+  const checkPct=Math.round((checkCount/CHECKLIST_ITEMS.length)*100);
+  const visita={
+    supId:S.uid, pdvId,
+    tipo:document.getElementById('sel-tipo').value,
+    checklist:{...S.checklistValues},
+    checkPct,
+    comentarios:document.getElementById('inp-comentarios').value.trim(),
+    lat:S.gps.lat, lng:S.gps.lng,
+    entrada:new Date().toISOString(),
+    salida:null, estado:'en-curso',
+  };
+  const {db,ref,push}=window._fb;
+  push(ref(db,'visitas_vp'),visita)
+    .then(()=>{cerrarModal();showToast('✅ Visita registrada');})
+    .catch(e=>{console.error(e);showToast('Error guardando','error');})
+    .finally(()=>{document.getElementById('btn-submit').disabled=false;document.getElementById('btn-submit').textContent='Guardar visita ✓';});
+}
+
+function finalizarVisita(key){
+  if(!key||!window._fb) return;
+  const {db,ref,update}=window._fb;
+  update(ref(db,`visitas_vp/${key}`),{salida:new Date().toISOString(),estado:'completada'})
+    .then(()=>showToast('✅ Visita finalizada'))
+    .catch(()=>showToast('Error al finalizar','error'));
+}
+
+function eliminarVisita(key){
+  if(!key||!window._fb) return;
+  if(!confirm('¿Seguro que querés eliminar esta visita?')) return;
+  const {db,ref,remove}=window._fb;
+  remove(ref(db,`visitas_vp/${key}`))
+    .then(()=>showToast('🗑 Visita eliminada'))
+    .catch(()=>showToast('Error al eliminar','error'));
+}
+
+// =============================================
+// MAPAS
+// =============================================
+function initMapSup(){
+  const c=S.gps||BASE;
+  S.mapaS=L.map('mapa').setView([c.lat,c.lng],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(S.mapaS);
+  const hoy=todayStr();
+  const visitados=new Set(Object.values(S.visitas).filter(v=>v.supId===S.uid&&v.entrada&&v.entrada.startsWith(hoy)).map(v=>v.pdvId));
+  SUPERVISORES[S.uid].pdvs.forEach(pid=>{
+    const p=PDVS[pid]; if(!p) return;
+    const ok=visitados.has(pid);
+    const icon=L.divIcon({html:`<div style="width:12px;height:12px;border-radius:50%;background:${ok?'var(--verde)':'#444'};border:2px solid ${ok?'#00C896':'#666'}"></div>`,className:'',iconSize:[12,12]});
+    L.marker([p.lat,p.lng],{icon}).addTo(S.mapaS).bindPopup(`<b>${p.nombre}</b><br>${p.tipo} · ${p.ciudad}${ok?'<br><span style="color:#00C896">✅ Visitado hoy</span>':''}`);
+  });
+}
+
+function initMapCorp(){
+  S.mapaC=L.map('mapa-corp').setView([BASE.lat,BASE.lng],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(S.mapaC);
+  Object.values(PDVS).forEach(p=>{
+    const icon=L.divIcon({html:`<div style="width:7px;height:7px;border-radius:50%;background:#2A4A6A;border:1px solid #3A6A9A"></div>`,className:'',iconSize:[7,7]});
+    L.marker([p.lat,p.lng],{icon}).addTo(S.mapaC).bindPopup(`<b>${p.nombre}</b><br>${p.tipo}`);
+  });
+  const {db,ref,onValue}=window._fb;
+  onValue(ref(db,'supervisores_vp'),snap=>{
+    const datos={};
+    snap.forEach(c=>{datos[c.key]=c.val();});
+    actualizarMarkersCorp(datos);
+  });
+}
+
+function actualizarMarkersCorp(datos){
+  if(!S.mapaC) return;
+  Object.entries(datos).forEach(([id,d])=>{
+    if(!d.lat||!d.lng) return;
+    const sup=SUPERVISORES[id]; if(!sup) return;
+    const online=d.online&&(Date.now()-d.lastSeen)<120000;
+    const icon=L.divIcon({
+      html:`<div style="background:${sup.color};color:#000;padding:4px 8px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap;">${sup.av} ${sup.nombre.split(' ')[0]}</div>`,
+      className:'',iconSize:[100,24],iconAnchor:[50,12]
+    });
+    if(S.supMarkers[id]) S.supMarkers[id].setLatLng([d.lat,d.lng]).setIcon(icon);
+    else S.supMarkers[id]=L.marker([d.lat,d.lng],{icon}).addTo(S.mapaC).bindPopup(`<b>${sup.nombre}</b><br>${sup.zona}<br>${online?'🟢 En línea':'⚫ Sin actividad'}`);
+  });
+}
+
+// =============================================
+// NO VISITADOS
+// =============================================
+function renderNoVisitados(){
+  const el=document.getElementById('contenido-novisitadas');
+  const categorias=[
+    {min:60,max:180,titulo:'⚠️ Sin visita entre 2 y 6 meses',color:'#B45309',bg:'#FAEEDA'},
+    {min:180,max:365,titulo:'🔴 Sin visita entre 6 meses y 1 año',color:'#A32D2D',bg:'#FCEBEB'},
+    {min:365,max:99999,titulo:'Sin visita hace más de 1 año',color:'#501313',bg:'#F7C1C1',punto:true},
+  ];
+  const ahora=Date.now();
+  const isCorp=S.role==='corporativo';
+  const ultimaVisita={};
+  Object.values(S.visitas).forEach(v=>{
+    if(!v.entrada) return;
+    const pid=String(v.pdvId);
+    const key=isCorp?pid:`${v.supId}_${pid}`;
+    const t=new Date(v.entrada).getTime();
+    if(!ultimaVisita[key]||t>ultimaVisita[key].t) ultimaVisita[key]={t,supId:v.supId,pdvId:pid};
+  });
+  let html=''; let totalGeneral=0;
+  categorias.forEach(cat=>{
+    let lista=[];
+    if(isCorp){
+      Object.entries(PDVS).forEach(([pid,pdv])=>{
+        const uv=ultimaVisita[pid];
+        const d=uv?Math.floor((ahora-uv.t)/86400000):9999;
+        const supId=uv?uv.supId:Object.entries(SUPERVISORES).find(([,s])=>s.pdvs.includes(pid))?.[0]||'?';
+        if(d>=cat.min&&d<cat.max) lista.push({pdv,supId,d});
+      });
+    } else {
+      SUPERVISORES[S.uid].pdvs.forEach(pid=>{
+        const pdv=PDVS[pid]; if(!pdv) return;
+        const key=`${S.uid}_${pid}`;
+        const uv=ultimaVisita[key];
+        const d=uv?Math.floor((ahora-uv.t)/86400000):9999;
+        if(d>=cat.min&&d<cat.max) lista.push({pdv,supId:S.uid,d});
+      });
+    }
+    lista.sort((a,b)=>b.d-a.d);
+    totalGeneral+=lista.length;
+    const tituloIcon=cat.punto?`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${cat.color};margin-right:8px;vertical-align:middle;"></span>`:'';
+    html+=`<div class="no-visitadas-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <h3 style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">${tituloIcon}${cat.titulo}</h3>
+        <span style="background:${cat.bg};color:${cat.color};font-size:12px;padding:3px 12px;border-radius:99px;font-weight:600;">${lista.length} PDV</span>
+      </div>`;
+    if(!lista.length){
+      html+=`<div style="text-align:center;padding:16px;color:var(--text2);background:var(--card);border-radius:12px;border:1px solid var(--border);font-size:13px;">✅ Ningún PDV en esta categoría</div>`;
+    } else {
+      html+=`<div style="background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border);">`;
+      lista.forEach(({pdv,supId,d})=>{
+        const sup=SUPERVISORES[supId];
+        html+=`<div style="padding:11px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);">
+          <div>
+            <p style="margin:0;font-size:14px;font-weight:500;">${pdv.nombre}</p>
+            <p style="margin:0;font-size:12px;color:var(--text2);">${pdv.tipo} · ${pdv.ciudad} · ${sup?sup.nombre:'?'}</p>
+          </div>
+          <span style="background:${cat.bg};color:${cat.color};font-size:12px;padding:3px 10px;border-radius:99px;white-space:nowrap;">${d===9999?'Nunca visitado':'Hace '+d+' días'}</span>
+        </div>`;
+      });
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+  });
+  if(totalGeneral===0) html=`<div class="empty"><div class="empty-icon">✅</div><h3>¡Todo al día!</h3><p>No hay PDV sin visita en ninguna categoría</p></div>`;
+  el.innerHTML=html;
+}
+
+function actualizarBadges(){
+  const ahora=Date.now();
+  const isCorp=S.role==='corporativo';
+  const ultimaVisita={};
+  Object.values(S.visitas).forEach(v=>{
+    if(!v.entrada) return;
+    const pid=String(v.pdvId);
+    const key=isCorp?pid:`${v.supId}_${pid}`;
+    const t=new Date(v.entrada).getTime();
+    if(!ultimaVisita[key]||t>ultimaVisita[key]) ultimaVisita[key]=t;
+  });
+  const pdvs=isCorp?Object.keys(PDVS):SUPERVISORES[S.uid]?.pdvs||[];
+  let total=0;
+  pdvs.forEach(pid=>{
+    const key=isCorp?pid:`${S.uid}_${pid}`;
+    const t=ultimaVisita[key];
+    const d=t?Math.floor((ahora-t)/86400000):9999;
+    if(d>=60) total++;
+  });
+  const badge=document.getElementById('badge-tab-novisitadas');
+  if(badge){
+    if(total>0){badge.textContent=total;badge.style.display='inline';}
+    else badge.style.display='none';
+  }
+}
+
+// =============================================
+// PLAN DE VISITAS
+// =============================================
+function getSemanaActual(){
+  const hoy=new Date();
+  const dia=hoy.getDay();
+  const lunes=new Date(hoy);
+  lunes.setDate(hoy.getDate()-(dia===0?6:dia-1));
+  lunes.setHours(0,0,0,0);
+  const domingo=new Date(lunes);
+  domingo.setDate(lunes.getDate()+6);
+  return {lunes,domingo,key:lunes.toISOString().slice(0,10)};
+}
+
+function planAbierto(semana){
+  const ahora=new Date();
+  const lunesSig=new Date(semana.lunes);
+  lunesSig.setDate(lunesSig.getDate()+7);
+  lunesSig.setHours(23,59,59,999);
+  return ahora>=semana.lunes&&ahora<=lunesSig;
+}
+
+function fechaCierrePlan(semana){
+  const lunesSig=new Date(semana.lunes);
+  lunesSig.setDate(lunesSig.getDate()+7);
+  return lunesSig.toLocaleDateString('es',{weekday:'long',day:'2-digit',month:'2-digit'});
+}
+
+function getUltimasSemanas(n=16){
+  const semanas=[];
+  for(let i=0;i<n;i++){
+    const hoy=new Date();
+    const dia=hoy.getDay();
+    const lunes=new Date(hoy);
+    lunes.setDate(hoy.getDate()-(dia===0?6:dia-1)-i*7);
+    lunes.setHours(0,0,0,0);
+    const domingo=new Date(lunes);
+    domingo.setDate(lunes.getDate()+6);
+    semanas.push({lunes,domingo,key:lunes.toISOString().slice(0,10),label:i===0?'Esta semana':`${fmtFecha(lunes)} — ${fmtFecha(domingo)}`});
+  }
+  return semanas;
+}
+
+function fmtFecha(d){return d.toLocaleDateString('es',{day:'2-digit',month:'2-digit',year:'numeric'});}
+
+function renderPlanVisitas(){
+  const semanas=getUltimasSemanas(16);
+  S_semanaViendoPlan=S_semanaViendoPlan||semanas[0].key;
+  poblarSelectoresPlan(semanas);
+  renderContenidoPlan(S_semanaViendoPlan);
+}
+
+function poblarSelectoresPlan(semanas){
+  const meses={};
+  semanas.forEach(s=>{
+    const mk=s.lunes.toLocaleDateString('es',{year:'numeric',month:'long'});
+    if(!meses[mk]) meses[mk]=[];
+    meses[mk].push(s);
+  });
+  const selMes=document.getElementById('plan-sel-mes');
+  const mesActual=semanas.find(s=>s.key===S_semanaViendoPlan)?.lunes.toLocaleDateString('es',{year:'numeric',month:'long'})||Object.keys(meses)[0];
+  selMes.innerHTML=Object.keys(meses).map(m=>`<option value="${m}" ${m===mesActual?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`).join('');
+  poblarSemanasDelMes(meses[mesActual],semanas);
+}
+
+function poblarSemanasDelMes(semanasDelMes,todasSemanas){
+  const selSem=document.getElementById('plan-sel-semana');
+  selSem.innerHTML=semanasDelMes.map((s,i)=>`<option value="${s.key}" ${s.key===S_semanaViendoPlan?'selected':''}>Semana ${i+1} (${s.lunes.toLocaleDateString('es',{day:'2-digit',month:'2-digit'})} — ${s.domingo.toLocaleDateString('es',{day:'2-digit',month:'2-digit'})})</option>`).join('');
+}
+
+function onCambioMesPlan(){
+  const semanas=getUltimasSemanas(16);
+  const mesKey=document.getElementById('plan-sel-mes').value;
+  const meses={};
+  semanas.forEach(s=>{const mk=s.lunes.toLocaleDateString('es',{year:'numeric',month:'long'});if(!meses[mk])meses[mk]=[];meses[mk].push(s);});
+  const semanasDelMes=meses[mesKey]||[];
+  if(semanasDelMes.length>0){
+    S_semanaViendoPlan=semanasDelMes[0].key;
+    poblarSemanasDelMes(semanasDelMes,semanas);
+    renderContenidoPlan(S_semanaViendoPlan);
+  }
+}
+
+function onCambioSemanaPlan(){
+  S_semanaViendoPlan=document.getElementById('plan-sel-semana').value;
+  renderContenidoPlan(S_semanaViendoPlan);
+}
+
+function renderContenidoPlan(semanaKey){
+  const semanas=getUltimasSemanas(16);
+  const semana=semanas.find(s=>s.key===semanaKey)||semanas[0];
+  const isCorp=S.role==='corporativo';
+  const abierto=planAbierto(semana);
+  const contenido=document.getElementById('plan-contenido');
+  if(isCorp) renderPlanCorp(semana,contenido);
+  else renderPlanSup(semana,abierto,contenido);
+}
+
+function renderPlanSup(semana,abierto,contenido){
+  if(!window._fb) return;
+  const {db,ref,onValue}=window._fb;
+  onValue(ref(db,`planes_vp/${S.uid}/${semana.key}`),snap=>{
+    const planData=snap.val()||{};
+    const planPDVs=planData.pdvs||[];
+    const visitasEnSemana=Object.values(S.visitas).filter(v=>{
+      if(v.supId!==S.uid||!v.entrada) return false;
+      const d=new Date(v.entrada);
+      return d>=semana.lunes&&d<=semana.domingo;
+    });
+    const visitadasIds=new Set(visitasEnSemana.map(v=>String(v.pdvId)));
+    const planIds=new Set(planPDVs.map(String));
+    const cumplidas=[...planIds].filter(id=>visitadasIds.has(id));
+    const pendientes=[...planIds].filter(id=>!visitadasIds.has(id));
+    const extras=[...visitadasIds].filter(id=>!planIds.has(id));
+    const total=planIds.size;
+    const pct=total>0?Math.round((cumplidas.length/total)*100):0;
+    let html=`<div class="plan-semana-header">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">Semana del ${semana.lunes.toLocaleDateString('es',{day:'2-digit',month:'2-digit'})} — ${semana.domingo.toLocaleDateString('es',{day:'2-digit',month:'2-digit',year:'numeric'})}</div>
+        <div style="font-size:12px;color:var(--text2);">${total} PDV planificados</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="plan-deadline ${abierto?'open':'closed'}">${abierto?`✏️ Editable hasta el ${fechaCierrePlan(semana)} 23:59`:'🔒 Plan cerrado'}</span>
+        ${abierto?`<button onclick="abrirModalPlan('${semana.key}')" style="background:var(--verde);color:#000;border:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">📝 ${total?'Editar':'Crear'} plan</button>`:''}
+      </div>
+    </div>`;
+    if(!total&&abierto){
+      html+=`<div class="empty"><div class="empty-icon">📋</div><h3>Sin plan cargado</h3><p>Cargá tu plan antes del lunes 23:59</p></div>`;
+    } else if(total){
+      html+=`<div class="plan-stats">
+        <div class="plan-stat"><div class="plan-stat-n" style="color:var(--verde)">${pct}%</div><div class="plan-stat-l">Cobertura</div><div class="cobertura-bar"><div class="cobertura-fill" style="width:${pct}%"></div></div></div>
+        <div class="plan-stat"><div class="plan-stat-n" style="color:var(--verde)">${cumplidas.length}</div><div class="plan-stat-l">✅ Cumplidas</div></div>
+        <div class="plan-stat"><div class="plan-stat-n" style="color:var(--rojo)">${pendientes.length}</div><div class="plan-stat-l">❌ Pendientes</div></div>
+        <div class="plan-stat"><div class="plan-stat-n" style="color:var(--azul)">${extras.length}</div><div class="plan-stat-l">➕ Extras</div></div>
+      </div>
+      <div>`;
+      cumplidas.forEach(id=>{const p=PDVS[id];if(!p)return;const v=visitasEnSemana.find(x=>String(x.pdvId)===id);html+=`<div class="plan-item"><div class="plan-item-icon cumplida">✅</div><div style="flex:1"><div style="font-size:14px;font-weight:500;">${p.nombre}</div><div style="font-size:12px;color:var(--text2)">${p.tipo} · ${p.ciudad}</div></div><span class="tag verde">Cumplida</span></div>`;});
+      extras.forEach(id=>{const p=PDVS[id];if(!p)return;html+=`<div class="plan-item"><div class="plan-item-icon extra">➕</div><div style="flex:1"><div style="font-size:14px;font-weight:500;">${p.nombre}</div><div style="font-size:12px;color:var(--text2)">No estaba en el plan</div></div><span class="tag azul">Extra</span></div>`;});
+      pendientes.forEach(id=>{const p=PDVS[id];if(!p)return;html+=`<div class="plan-item"><div class="plan-item-icon ${abierto?'pendiente':'incumplida'}">${abierto?'⏳':'❌'}</div><div style="flex:1"><div style="font-size:14px;font-weight:500;">${p.nombre}</div><div style="font-size:12px;color:var(--text2)">${p.tipo} · ${p.ciudad}</div></div><span class="tag ${abierto?'gris':'rojo'}">${abierto?'Pendiente':'No cumplida'}</span></div>`;});
+      html+=`</div>`;
+    }
+    contenido.innerHTML=html;
+  },{onlyOnce:true});
+}
+
+function renderPlanCorp(semana,contenido){
+  if(!window._fb) return;
+  const {db,ref,onValue}=window._fb;
+  onValue(ref(db,'planes_vp'),snap=>{
+    const todosPlanes=snap.val()||{};
+    const visitasEnSemana=Object.values(S.visitas).filter(v=>{
+      if(!v.entrada) return false;
+      const d=new Date(v.entrada);
+      return d>=semana.lunes&&d<=semana.domingo;
+    });
+    let html=`<div class="plan-semana-header"><div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">Semana del ${semana.lunes.toLocaleDateString('es',{day:'2-digit',month:'2-digit'})} — ${semana.domingo.toLocaleDateString('es',{day:'2-digit',month:'2-digit',year:'numeric'})}</div></div></div><div style="display:flex;flex-direction:column;gap:12px;">`;
+    Object.entries(SUPERVISORES).forEach(([supId,sup])=>{
+      const planData=(todosPlanes[supId]&&todosPlanes[supId][semana.key])||{};
+      const planPDVs=(planData.pdvs||[]).map(String);
+      const visitasIds=new Set(visitasEnSemana.filter(v=>v.supId===supId).map(v=>String(v.pdvId)));
+      const total=planPDVs.length;
+      const cumplidas=planPDVs.filter(id=>visitasIds.has(id)).length;
+      const extras=[...visitasIds].filter(id=>!planPDVs.includes(id)).length;
+      const pendientes=total-cumplidas;
+      const pct=total>0?Math.round((cumplidas/total)*100):0;
+      const color=pct>=80?'var(--verde)':pct>=50?'var(--amarillo)':'var(--rojo)';
+      html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 20px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+          <div class="user-avatar" style="background:${sup.color};width:36px;height:36px;font-size:13px;">${sup.av}</div>
+          <div style="flex:1"><div style="font-weight:600;">${sup.nombre}</div><div style="font-size:12px;color:var(--text2)">${sup.zona} · ${total} PDV planificados</div></div>
+          <div style="text-align:right"><div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:${color}">${pct}%</div><div style="font-size:11px;color:var(--text2)">cobertura</div></div>
+        </div>
+        <div class="cobertura-bar"><div class="cobertura-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;">
+          <span style="color:var(--verde)">✅ ${cumplidas} cumplidas</span>
+          <span style="color:var(--rojo)">❌ ${pendientes} pendientes</span>
+          <span style="color:var(--azul)">➕ ${extras} extras</span>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+    contenido.innerHTML=html;
+  },{onlyOnce:true});
+}
+
+function abrirModalPlan(semanaKey){
+  S_planSemanaEditando=semanaKey;
+  document.getElementById('modal-plan-label').textContent=`PDV para la semana del ${semanaKey}`;
+  if(window._fb){
+    const {db,ref,onValue}=window._fb;
+    onValue(ref(db,`planes_vp/${S.uid}/${semanaKey}`),snap=>{
+      const planData=snap.val()||{};
+      S_planSeleccionadoActual=new Set((planData.pdvs||[]).map(String));
+      renderListaPDVsPlan(SUPERVISORES[S.uid].pdvs,'');
+    },{onlyOnce:true});
+  } else {
+    S_planSeleccionadoActual=new Set();
+    renderListaPDVsPlan(SUPERVISORES[S.uid].pdvs,'');
+  }
+  document.getElementById('modal-plan-overlay').classList.add('open');
+}
+
+function renderListaPDVsPlan(pdvIds,filtro){
+  const lista=document.getElementById('plan-lista-pdvs');
+  const filtrado=pdvIds.filter(id=>{
+    const p=PDVS[id]; if(!p) return false;
+    if(!filtro) return true;
+    return p.nombre.toLowerCase().includes(filtro.toLowerCase())||p.ciudad.toLowerCase().includes(filtro.toLowerCase());
+  });
+  lista.innerHTML=filtrado.map(id=>{
+    const p=PDVS[id]; if(!p) return '';
+    const sel=S_planSeleccionadoActual.has(String(id));
+    return `<div onclick="togglePlanPDV('${id}')" style="padding:10px 14px;border-radius:10px;border:1px solid ${sel?'var(--verde)':'var(--border)'};background:${sel?'rgba(0,200,150,.08)':'transparent'};cursor:pointer;display:flex;align-items:center;gap:10px;transition:.2s;">
+      <div style="width:20px;height:20px;border-radius:5px;border:2px solid ${sel?'var(--verde)':'var(--text3)'};background:${sel?'var(--verde)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:#000;">${sel?'✓':''}</div>
+      <div><div style="font-size:13px;font-weight:500;">${p.nombre}</div><div style="font-size:11px;color:var(--text2)">${p.tipo} · ${p.ciudad}</div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('plan-contador').textContent=`${S_planSeleccionadoActual.size} PDV seleccionados`;
+}
+
+function togglePlanPDV(id){
+  const sid=String(id);
+  if(S_planSeleccionadoActual.has(sid)) S_planSeleccionadoActual.delete(sid);
+  else S_planSeleccionadoActual.add(sid);
+  filtrarPDVPlan();
+}
+
+function filtrarPDVPlan(){
+  const filtro=document.getElementById('plan-buscar').value;
+  renderListaPDVsPlan(SUPERVISORES[S.uid].pdvs,filtro);
+}
+
+function cerrarModalPlan(){document.getElementById('modal-plan-overlay').classList.remove('open');}
+
+function guardarPlanVisitas(){
+  if(!window._fb){showToast('Sin conexión','error');return;}
+  if(S_planSeleccionadoActual.size===0){showToast('Seleccioná al menos un PDV','error');return;}
+  const {db,ref,set}=window._fb;
+  const pdvs=[...S_planSeleccionadoActual];
+  set(ref(db,`planes_vp/${S.uid}/${S_planSemanaEditando}`),{pdvs,creadoEn:new Date().toISOString(),supId:S.uid})
+    .then(()=>{cerrarModalPlan();showToast(`✅ Plan guardado — ${pdvs.length} PDV`);renderPlanVisitas();})
+    .catch(()=>showToast('Error al guardar','error'));
+}
+
+// =============================================
+// GESTIÓN
+// =============================================
+function getMesesDisponibles(){
+  const meses=[];
+  const hoy=new Date();
+  for(let i=0;i<12;i++){
+    const d=new Date(hoy.getFullYear(),hoy.getMonth()-i,1);
+    meses.push({key:d.toISOString().slice(0,7),label:d.toLocaleDateString('es',{year:'numeric',month:'long'})});
+  }
+  return meses;
+}
+
+function getDiasHastaHoy(mesKey){
+  const hoy=new Date();
+  const mesActual=hoy.toISOString().slice(0,7);
+  if(mesKey===mesActual) return hoy.getDate();
+  const [y,m]=mesKey.split('-').map(Number);
+  return new Date(y,m,0).getDate();
+}
+
+function getSemanasDelMes(mesKey){
+  const [y,m]=mesKey.split('-').map(Number);
+  const primerDia=new Date(y,m-1,1);
+  const ultimoDia=new Date(y,m,0);
+  const semanas=[];
+  let lunes=new Date(primerDia);
+  const dia=lunes.getDay();
+  lunes.setDate(lunes.getDate()-(dia===0?6:dia-1));
+  while(lunes<=ultimoDia){
+    semanas.push(lunes.toISOString().slice(0,10));
+    lunes=new Date(lunes);
+    lunes.setDate(lunes.getDate()+7);
+  }
+  return semanas;
+}
+
+async function getObjetivoMes(supId,mesKey){
+  if(!window._fb) return [];
+  const {db,ref,get}=window._fb;
+  const semanas=getSemanasDelMes(mesKey);
+  const todasPDVs=new Set();
+  for(const semKey of semanas){
+    try{
+      const snap=await get(ref(db,`planes_vp/${supId}/${semKey}`));
+      if(snap.exists()){(snap.val().pdvs||[]).forEach(p=>todasPDVs.add(String(p)));}
+    }catch(e){}
+  }
+  return [...todasPDVs];
+}
+
+async function renderGestion(){
+  const meses=getMesesDisponibles();
+  const sel=document.getElementById('gestion-sel-mes');
+  if(!sel.options.length) sel.innerHTML=meses.map((m,i)=>`<option value="${m.key}">${m.label.charAt(0).toUpperCase()+m.label.slice(1)}</option>`).join('');
+  const mesKey=sel.value||meses[0].key;
+  const mesAntKey=meses[meses.findIndex(m=>m.key===mesKey)+1]?.key||null;
+  const isCorp=S.role==='corporativo';
+  const sups=isCorp?Object.keys(SUPERVISORES):[S.uid];
+  const diasHastaHoy=getDiasHastaHoy(mesKey);
+  const visitasMes=Object.values(S.visitas).filter(v=>v.entrada&&v.entrada.startsWith(mesKey));
+  const visitasMesAnt=mesAntKey?Object.values(S.visitas).filter(v=>{
+    if(!v.entrada||!v.entrada.startsWith(mesAntKey)) return false;
+    return new Date(v.entrada).getDate()<=diasHastaHoy;
+  }):[];
+  let totalObjetivo=0,totalLogrado=0,totalExtras=0,totalPendiente=0,totalObjAnt=0,totalLogAnt=0;
+  const filasHTML=[];
+  for(const supId of sups){
+    const sup=SUPERVISORES[supId];
+    const objetivo=await getObjetivoMes(supId,mesKey);
+    const objetivoAnt=mesAntKey?await getObjetivoMes(supId,mesAntKey):[];
+    const objSet=new Set(objetivo.map(String));
+    const visitasSup=visitasMes.filter(v=>v.supId===supId);
+    const visitasSupAnt=visitasMesAnt.filter(v=>v.supId===supId);
+    const logrado=visitasSup.filter(v=>objSet.has(String(v.pdvId))).length;
+    const extras=visitasSup.filter(v=>!objSet.has(String(v.pdvId))).length;
+    const visitadasIds=new Set(visitasSup.map(v=>String(v.pdvId)));
+    const pendiente=objetivo.filter(id=>!visitadasIds.has(id)).length;
+    const pct=objetivo.length>0?Math.round((logrado/objetivo.length)*100):0;
+    const objSetAnt=new Set(objetivoAnt.map(String));
+    const logradoAnt=visitasSupAnt.filter(v=>objSetAnt.has(String(v.pdvId))).length;
+    totalObjetivo+=objetivo.length;totalLogrado+=logrado;totalExtras+=extras;totalPendiente+=pendiente;totalObjAnt+=objetivoAnt.length;totalLogAnt+=logradoAnt;
+    const color=pct>=80?'var(--verde)':pct>=50?'var(--amarillo)':'var(--rojo)';
+    filasHTML.push(`<tr style="background:var(--card2);">
+      <td><b style="color:${sup.color}">${sup.nombre}</b></td>
+      <td style="color:var(--text2);font-size:12px;">${sup.zona}</td>
+      <td><b>${objetivo.length}</b></td>
+      <td><b style="color:var(--verde)">${logrado}</b></td>
+      <td><b style="color:${color}">${pct}%</b></td>
+      <td style="color:var(--azul)">${extras}</td>
+      <td style="color:var(--rojo)">${pendiente}</td>
+    </tr>`);
+    objetivo.forEach(pdvId=>{
+      const pdv=PDVS[pdvId]; if(!pdv) return;
+      const visitada=visitadasIds.has(String(pdvId));
+      filasHTML.push(`<tr>
+        <td style="color:var(--text3);font-size:12px;padding-left:24px;">└</td>
+        <td style="font-size:13px;">${pdv.nombre}<br><span style="font-size:11px;color:var(--text2)">${pdv.tipo} · ${pdv.ciudad}</span></td>
+        <td style="color:var(--text2);font-size:12px;">Plan</td>
+        <td>${visitada?'<span style="color:var(--verde)">✅ Sí</span>':'<span style="color:var(--text3)">—</span>'}</td>
+        <td></td><td></td>
+        <td>${!visitada?'<span style="color:var(--rojo);font-size:12px;">Pendiente</span>':''}</td>
+      </tr>`);
+    });
+  }
+  const pctTotal=totalObjetivo>0?Math.round((totalLogrado/totalObjetivo)*100):0;
+  const pctAnt=totalObjAnt>0?Math.round((totalLogAnt/totalObjAnt)*100):0;
+  function ds(n){return n>0?`+${n}`:String(n);}
+  function dc(n){return n>0?'delta-pos':'delta-neg';}
+  document.getElementById('gestion-cards').innerHTML=`
+    <div class="gestion-card"><div class="gestion-card-titulo">Objetivo visita</div><div class="gestion-card-num">${totalObjetivo}</div><div class="gestion-card-ant">Anterior: <b>${totalObjAnt}</b> <span class="${dc(totalObjetivo-totalObjAnt)}">(${ds(totalObjetivo-totalObjAnt)})</span></div></div>
+    <div class="gestion-card"><div class="gestion-card-titulo">Visitas logradas</div><div class="gestion-card-num" style="color:var(--verde)">${totalLogrado}</div><div class="gestion-card-ant" style="color:var(--verde)">${pctTotal}% del objetivo</div><div class="gestion-card-ant">Anterior: <b>${totalLogAnt}</b> <span class="${dc(totalLogrado-totalLogAnt)}">(${ds(totalLogrado-totalLogAnt)})</span></div></div>
+    <div class="gestion-card"><div class="gestion-card-titulo">% Cobertura</div><div class="gestion-card-num" style="color:${pctTotal>=80?'var(--verde)':pctTotal>=50?'var(--amarillo)':'var(--rojo)'}">${pctTotal}%</div><div class="gestion-card-ant">Anterior: <b>${pctAnt}%</b> <span class="${dc(pctTotal-pctAnt)}">(${ds(pctTotal-pctAnt)}%)</span></div></div>
+    <div class="gestion-card"><div class="gestion-card-titulo">Pendiente visitar</div><div class="gestion-card-num" style="color:var(--rojo)">${totalPendiente}</div><div class="gestion-card-ant">PDV del plan sin visitar</div></div>
+    <div class="gestion-card extra"><div class="gestion-card-titulo">Visitas extras</div><div class="gestion-card-num" style="color:var(--azul)">${totalExtras}</div><div class="gestion-card-ant">No suman al % cobertura</div></div>
+  `;
+  document.getElementById('tbody-gestion').innerHTML=filasHTML.join('');
+}
+
+// =============================================
+// MODAL NUEVO PDV
+// =============================================
+function abrirModalPDV(){
+  const sel=document.getElementById('pdv-sup');
+  sel.innerHTML='<option value="">Seleccioná un supervisor...</option>'+
+    Object.entries(SUPERVISORES).map(([id,s])=>`<option value="${id}">${s.nombre} — ${s.zona}</option>`).join('');
+  ['pdv-nombre','pdv-ciudad','pdv-direccion','pdv-lat','pdv-lng'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pdv-tipo').value='';
+  document.getElementById('modal-pdv-overlay').classList.add('open');
+}
+function cerrarModalPDV(){document.getElementById('modal-pdv-overlay').classList.remove('open');}
+
+function guardarNuevoPDV(){
+  const nombre=document.getElementById('pdv-nombre').value.trim();
+  const tipo=document.getElementById('pdv-tipo').value;
+  const ciudad=document.getElementById('pdv-ciudad').value.trim();
+  const direccion=document.getElementById('pdv-direccion').value.trim();
+  const lat=parseFloat(document.getElementById('pdv-lat').value);
+  const lng=parseFloat(document.getElementById('pdv-lng').value);
+  const supId=document.getElementById('pdv-sup').value;
+  if(!nombre){showToast('Ingresá el nombre','error');return;}
+  if(!tipo){showToast('Seleccioná el tipo','error');return;}
+  if(!ciudad){showToast('Ingresá la ciudad','error');return;}
+  if(isNaN(lat)||isNaN(lng)){showToast('Ingresá coordenadas válidas','error');return;}
+  if(!supId){showToast('Seleccioná un supervisor','error');return;}
+  const newId='pdv'+Date.now();
+  PDVS[newId]={id:newId,nombre,tipo,ciudad,direccion,lat,lng};
+  if(SUPERVISORES[supId]) SUPERVISORES[supId].pdvs.push(newId);
+  if(window._fb){
+    const {db,ref,set}=window._fb;
+    set(ref(db,`pdvs_vp/${newId}`),{id:newId,nombre,tipo,ciudad,direccion,lat,lng,supId})
+      .then(()=>{cerrarModalPDV();showToast(`✅ ${nombre} agregado`);})
+      .catch(()=>showToast('Error al guardar','error'));
+  } else {cerrarModalPDV();showToast(`✅ ${nombre} agregado`);}
+}
+
+// =============================================
+// HISTORIAL
+// =============================================
+function renderHistorial(){
+  const isCorp=S.role==='corporativo';
+  let visitas=Object.values(S.visitas);
+  if(!isCorp) visitas=visitas.filter(v=>v.supId===S.uid);
+  visitas.sort((a,b)=>new Date(b.entrada||0)-new Date(a.entrada||0));
+  const fw=document.getElementById('filtros-wrap');
+  if(isCorp){
+    fw.innerHTML=['Todos',...Object.values(SUPERVISORES).map(s=>s.nombre)].map((f,i)=>
+      `<button class="filtro-btn${i===0?' active':''}" onclick="filtrarH(this,'${f}')">${f}</button>`
+    ).join('');
+  } else {
+    fw.innerHTML=['Todos','rutina','seguimiento','auditoria','capacitacion','urgente'].map((f,i)=>
+      `<button class="filtro-btn${i===0?' active':''}" onclick="filtrarH(this,'${f}')">${f.charAt(0).toUpperCase()+f.slice(1)}</button>`
+    ).join('');
+  }
+  renderTabla(visitas);
+}
+
+function filtrarH(btn,f){
+  document.querySelectorAll('.filtro-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  let v=Object.values(S.visitas);
+  if(S.role==='supervisor') v=v.filter(x=>x.supId===S.uid);
+  if(f!=='todos'&&f!=='Todos'){
+    if(S.role==='corporativo'){const id=Object.entries(SUPERVISORES).find(([,s])=>s.nombre===f)?.[0];if(id) v=v.filter(x=>x.supId===id);}
+    else v=v.filter(x=>x.tipo===f);
+  }
+  renderTabla(v.sort((a,b)=>new Date(b.entrada||0)-new Date(a.entrada||0)));
+}
+
+function renderTabla(visitas){
+  const tb=document.getElementById('tabla-historial');
+  if(!visitas.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text2)">Sin visitas</td></tr>';return;}
+  tb.innerHTML=visitas.map(v=>{
+    const pdv=PDVS[v.pdvId];const sup=SUPERVISORES[v.supId];
+    const e=v.entrada?new Date(v.entrada):null;const s=v.salida?new Date(v.salida):null;
+    const dur=e&&s?Math.round((s-e)/60000)+' min':'—';
+    const checkCount=Object.values(v.checklist||{}).filter(Boolean).length;
+    return `<tr>
+      <td><b>${pdv?.nombre||v.pdvId}</b><br><span style="font-size:11px;color:var(--text2)">${pdv?.ciudad||''}</span></td>
+      <td>${pdv?.tipo||'—'}</td>
+      <td>${sup?.nombre||v.supId}</td>
+      <td><span style="color:var(--azul)">✓ ${checkCount}/${CHECKLIST_ITEMS.length}</span></td>
+      <td>${e?fmtFH(e):'—'}</td>
+      <td>${s?fmtFH(s):'Activa'}</td>
+      <td>${dur}</td>
+      <td><span style="font-size:11px;padding:2px 8px;border-radius:99px;background:${v.estado==='en-curso'?'rgba(0,200,150,.15)':'rgba(59,130,246,.15)'};color:${v.estado==='en-curso'?'var(--verde)':'var(--azul)'}">${v.estado||'?'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// =============================================
+// EXPORTAR EXCEL
+// =============================================
+function exportarExcel(){
+  const isCorp=S.role==='corporativo';
+  let visitas=Object.values(S.visitas);
+  if(!isCorp) visitas=visitas.filter(v=>v.supId===S.uid);
+  visitas.sort((a,b)=>new Date(b.entrada||0)-new Date(a.entrada||0));
+  const rows=[['PDV','Tipo','Ciudad','Supervisor','Zona','Tipo Visita','Checklist %','Comentarios','Fecha Entrada','Hora Entrada','Fecha Salida','Hora Salida','Duración (min)','Estado','Lat','Lng']];
+  visitas.forEach(v=>{
+    const pdv=PDVS[v.pdvId]||{};const sup=SUPERVISORES[v.supId]||{};
+    const e=v.entrada?new Date(v.entrada):null;const s=v.salida?new Date(v.salida):null;
+    const dur=e&&s?Math.round((s-e)/60000):'';
+    const fmtF=d=>d?d.toLocaleDateString('es'):'';
+    const fmtHr=d=>d?d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}):'';
+    rows.push([pdv.nombre||v.pdvId,pdv.tipo||'',pdv.ciudad||'',sup.nombre||v.supId,sup.zona||'',v.tipo||'',v.checkPct||0,v.comentarios||'',fmtF(e),fmtHr(e),fmtF(s),fmtHr(s),dur,v.estado||'',v.lat||'',v.lng||'']);
+  });
+  const bom='\uFEFF';
+  const csv=bom+rows.map(r=>r.map(c=>{const val=String(c).replace(/"/g,'""');return val.includes(',')||val.includes('\n')||val.includes('"')?`"${val}"`:val;}).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const fecha=new Date().toLocaleDateString('es').replace(/\//g,'-');
+  a.href=url;a.download=`VisitPro_Historial_${fecha}.csv`;a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Excel descargado');
+}
+
+// =============================================
+// UTILS
+// =============================================
+function todayStr(){return new Date().toISOString().slice(0,10);}
+function fmtH(d){return d.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});}
+function fmtFH(d){return d.toLocaleDateString('es',{day:'2-digit',month:'2-digit'})+' '+fmtH(d);}
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast'+(type?' '+type:'');
+  setTimeout(()=>t.classList.add('show'),10);
+  setTimeout(()=>t.classList.remove('show'),3200);
+}
+document.getElementById('input-admin').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+</script>
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/visitpro/sw.js')
+      .then(()=>console.log('SW registrado'))
+      .catch(e=>console.warn('SW error',e));
+  });
+}
+</script>
+</body>
+</html>
