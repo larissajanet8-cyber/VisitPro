@@ -1076,7 +1076,7 @@ function actualizarReporteVentas(){
               <td style="font-size:12px">${suc.nombreRep||suc.codRep||'—'}</td>
               <td><span class="badge ${visitasMes>0?'verde':'rojo'}">${visitasMes} visitas</span></td>
               <td style="font-weight:600">${fmtMoney(valMes)}</td>
-              <td>${delta!==null?`<span style="color:${delta>=0?'var(--verde)':'var(--rojo)';font-weight:600}">${delta>=0?'+':''}${delta}%</span>`:'—'}</td>
+              <td>${delta!==null?`<span style="color:${delta>=0?'var(--verde)':'var(--rojo)'};font-weight:600">${delta>=0?'+':''}${delta}%</span>`:'—'}</td>
               <td>${fmtMoney(ytdVal)}</td>
             </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text2)">Sin datos</td></tr>'}</tbody>
           </table>
